@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/enrollments")
@@ -32,23 +34,29 @@ public class EnrollmentController {
     }
 
     @PostMapping
-    public ResponseEntity<?> enrollStudent(@RequestBody Enrollment enrollment) {
-        if (enrollment.getStudent() == null || enrollment.getCourse() == null) {
-            return ResponseEntity.badRequest().body("Student and Course must be specified.");
+    public ResponseEntity<?> enrollStudent(@RequestBody Map<String, Object> payload) {
+        String rollNo = payload.get("rollNo") != null ? payload.get("rollNo").toString() : null;
+        String courseCode = payload.get("courseCode") != null ? payload.get("courseCode").toString() : null;
+        String grade = payload.get("grade") != null ? payload.get("grade").toString() : "A";
+
+        if (rollNo == null || courseCode == null) {
+            return ResponseEntity.badRequest().body("Both Roll No and Course Code are required.");
         }
 
-        Long studentId = enrollment.getStudent().getId();
-        Long courseId = enrollment.getCourse().getId();
+        Optional<Student> studentOpt = studentRepository.findByRollNo(rollNo.trim());
+        Optional<Course> courseOpt = courseRepository.findByCode(courseCode.trim());
 
-        Student student = studentRepository.findById(studentId).orElse(null);
-        Course course = courseRepository.findById(courseId).orElse(null);
-
-        if (student == null || course == null) {
-            return ResponseEntity.badRequest().body("Specified student or course does not exist.");
+        if (studentOpt.isEmpty() || courseOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Student or Course not found.");
         }
 
-        enrollment.setStudent(student);
-        enrollment.setCourse(course);
+        Enrollment enrollment = new Enrollment();
+        enrollment.setRollNo(studentOpt.get().getRollNo());
+        enrollment.setCourseCode(courseOpt.get().getCode());
+        enrollment.setStudent(studentOpt.get());
+        enrollment.setCourse(courseOpt.get());
+        enrollment.setGrade(grade);
+
         return ResponseEntity.ok(enrollmentRepository.save(enrollment));
     }
 
